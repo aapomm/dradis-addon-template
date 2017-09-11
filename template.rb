@@ -8,6 +8,7 @@ remove_file 'lib'
 empty_directory 'templates/'
 
 ##### LIB FILES #####
+empty_directory "lib/#{name}"
 
 # Main gem file
 create_file "lib/dradis-#{plugin_name}.rb" do
@@ -79,7 +80,7 @@ end
 # importer.rb
 create_file "lib/dradis/plugins/#{plugin_name}/importer.rb" do
 <<-EOS
-module Dradis::Plugins::Saint
+module Dradis::Plugins::#{camelized_name}
   class Importer < Dradis::Plugins::Upload::Importer
     def import(params={})
       # This is where the actual code for parsing the XML file comes in.
@@ -132,6 +133,44 @@ end
 EOS
 end
 
-empty_directory "lib/#{name}"
+# thorfile.rb
+create_file "lib/tasks/thorfile.rb" do
+<<-EOS
+class #{camelized_name}Tasks < Thor
+nclude Rails.application.config.dradis.thor_helper_module
+
+  namespace "dradis:plugins:#{plugin_name}"
+
+  desc "upload FILE", "upload #{camelized_name} XML file"
+  def upload(file_path)
+    require 'config/environment'
+
+    unless File.exists?(file_path)
+      $stderr.puts "** the file [#{file_path}] does not exist"
+      exit(-1)
+    end
+
+    detect_and_set_project_scope
+    importer = Dradis::Plugins::#{camelized_name}::Importer.new(task_options)
+    importer.import(file: file_path)
+  end
+end
+EOS
+end
 
 
+##### SPEC FILES #####
+create_file "spec/spec_helper.rb" do
+<<-EOS
+require 'rubygems'
+require 'bundler/setup'
+require 'nokogiri'
+
+require 'combustion'
+
+Combustion.initialize!
+
+RSpec.configure do |config|
+end
+EOS
+end
